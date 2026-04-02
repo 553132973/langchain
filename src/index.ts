@@ -35,6 +35,7 @@ const providers: Record<string, { name: string; url: string; free: boolean }> = 
   gemini: { name: "Google Gemini", url: "https://aistudio.google.com/apikey", free: true },
   groq: { name: "Groq (超快推理)", url: "https://console.groq.com/keys", free: true },
   openai: { name: "OpenAI", url: "https://platform.openai.com", free: false },
+  dashscope: { name: "通义千问 (DashScope)", url: "https://dashscope.console.aliyun.com/", free: false },
 };
 
 async function createLLM(provider: string): Promise<any> {
@@ -63,6 +64,17 @@ async function createLLM(provider: string): Promise<any> {
     case "openai":
       return new ChatOpenAI({
         model: "gpt-4o-mini",
+        temperature: 0.7,
+        maxRetries: 2,
+      });
+    
+    case "dashscope":
+      return new ChatOpenAI({
+        model: process.env.DASHSCOPE_MODEL || "qwen-turbo",
+        apiKey: process.env.DASHSCOPE_API_KEY,
+        configuration: {
+          baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        },
         temperature: 0.7,
         maxRetries: 2,
       });
