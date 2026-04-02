@@ -126,6 +126,12 @@
             border-bottom-left-radius: 4px;
         }
 
+        .message.ai .message-content img {
+            max-width: 100%;
+            border-radius: 12px;
+            margin-top: 8px;
+        }
+
         .chat-input-container {
             padding: 20px;
             border-top: 1px solid #e0e0e0;
@@ -149,8 +155,9 @@
         }
 
         .send-btn,
-        .clear-btn {
-            padding: 14px 24px;
+        .clear-btn,
+        .image-btn {
+            padding: 14px 20px;
             border: none;
             border-radius: 25px;
             cursor: pointer;
@@ -181,6 +188,22 @@
 
         .clear-btn:hover {
             background: #d0d0d0;
+        }
+
+        .image-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .image-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .image-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .loading {
@@ -228,6 +251,37 @@
             color: #333;
             margin-bottom: 10px;
         }
+
+        .mode-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .mode-btn.active:hover {
+            background: white;
+        }
     </style>
 </head>
 
@@ -235,7 +289,11 @@
     <div class="chat-container">
         <div class="chat-header">
             <h1>🤖 LangChain Pro 智能问答</h1>
-            <p>基于通义千问大模型</p>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="chatModeBtn" onclick="setMode('chat')">💬 聊天</button>
+                <button class="mode-btn" id="imageModeBtn" onclick="setMode('image')">🎨 图片生成</button>
+            </div>
+            <p id="modeDescription">基于通义千问大模型</p>
         </div>
 
         <div class="chat-messages" id="chatMessages">
@@ -248,6 +306,7 @@
         <div class="chat-input-container">
             <input type="text" class="chat-input" id="chatInput" placeholder="输入你的问题..." autocomplete="off">
             <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+            <button class="image-btn" id="imageBtn" onclick="generateImage()" style="display: none;">🎨 生成</button>
             <button class="clear-btn" onclick="clearChat()">清空</button>
         </div>
     </div>
@@ -257,16 +316,44 @@
         const chatMessages = document.getElementById('chatMessages');
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
+        const imageBtn = document.getElementById('imageBtn');
+        let currentMode = 'chat';
+
+        function setMode(mode) {
+            currentMode = mode;
+            const chatModeBtn = document.getElementById('chatModeBtn');
+            const imageModeBtn = document.getElementById('imageModeBtn');
+            const modeDescription = document.getElementById('modeDescription');
+
+            if (mode === 'chat') {
+                chatModeBtn.classList.add('active');
+                imageModeBtn.classList.remove('active');
+                sendBtn.style.display = 'block';
+                imageBtn.style.display = 'none';
+                chatInput.placeholder = '输入你的问题...';
+                modeDescription.textContent = '基于通义千问大模型';
+            } else {
+                imageModeBtn.classList.add('active');
+                chatModeBtn.classList.remove('active');
+                sendBtn.style.display = 'none';
+                imageBtn.style.display = 'block';
+                chatInput.placeholder = '描述你想生成的图片...';
+                modeDescription.textContent = '基于通义万相图片生成模型';
+            }
+        }
 
         // 回车发送消息
         chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                sendMessage();
+                if (currentMode === 'chat') {
+                    sendMessage();
+                } else {
+                    generateImage();
+                }
             }
         });
 
         function addMessage(content, isUser) {
-            // 移除欢迎消息
             const welcome = chatMessages.querySelector('.welcome-message');
             if (welcome) welcome.remove();
 
@@ -276,6 +363,25 @@
             messageDiv.innerHTML = `
                 <div class="avatar">${isUser ? '👤' : '🤖'}</div>
                 <div class="message-content">${escapeHtml(content)}</div>
+            `;
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addImageMessage(imageUrl) {
+            const welcome = chatMessages.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ai';
+
+            messageDiv.innerHTML = `
+                <div class="avatar">🎨</div>
+                <div class="message-content">
+                    <div>图片生成完成：</div>
+                    <img src="${imageUrl}" alt="生成的图片" onerror="this.parentElement.innerHTML='图片加载失败'">
+                </div>
             `;
 
             chatMessages.appendChild(messageDiv);
@@ -299,6 +405,23 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
+        function addImageLoading() {
+            const welcome = chatMessages.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message ai';
+            loadingDiv.id = 'loading';
+            loadingDiv.innerHTML = `
+                <div class="avatar">🎨</div>
+                <div class="loading">
+                    <span></span><span></span><span></span>
+                </div>
+            `;
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
         function removeLoading() {
             const loading = document.getElementById('loading');
             if (loading) loading.remove();
@@ -314,12 +437,10 @@
             const message = chatInput.value.trim();
             if (!message) return;
 
-            // 添加用户消息
             addMessage(message, true);
             chatInput.value = '';
             sendBtn.disabled = true;
 
-            // 显示加载状态
             addLoading();
 
             try {
@@ -346,6 +467,40 @@
             }
         }
 
+        async function generateImage() {
+            const prompt = chatInput.value.trim();
+            if (!prompt) return;
+
+            addMessage(prompt, true);
+            chatInput.value = '';
+            imageBtn.disabled = true;
+
+            addImageLoading();
+
+            try {
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const data = await response.json();
+                removeLoading();
+
+                if (data.imageUrl) {
+                    addImageMessage(data.imageUrl);
+                } else {
+                    addMessage('图片生成失败: ' + (data.error || '未知错误'), false);
+                }
+            } catch (error) {
+                removeLoading();
+                addMessage('网络错误，请稍后重试。', false);
+            } finally {
+                imageBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
         async function clearChat() {
             try {
                 await fetch('/api/clear', {
@@ -365,7 +520,6 @@
             }
         }
 
-        // 页面加载后聚焦输入框
         chatInput.focus();
     </script>
 </body>
